@@ -58,9 +58,10 @@ impl Camera {
 
         Ray {
             origin: self.origin + offset,
-            direction: self.lower_left_corner + self.horizontal * s + self.vertical * t
+            direction: (self.lower_left_corner + self.horizontal * s + self.vertical * t
                 - self.origin
-                - offset,
+                - offset)
+                .normalized(),
         }
     }
 }
