@@ -1,5 +1,7 @@
+use num::clamp;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Colour {
     pub r: f32,
@@ -7,13 +9,28 @@ pub struct Colour {
     pub b: f32,
 }
 
+#[allow(dead_code)]
 impl Colour {
     pub fn new(r: f32, g: f32, b: f32) -> Colour {
         Colour { r, g, b }
     }
 
     pub fn to_u8(&self) -> [u8; 3] {
-        [self.r as u8, self.b as u8, self.g as u8]
+        [
+            (256. * clamp(self.r, 0.0, 0.999)) as u8,
+            (256. * clamp(self.g, 0.0, 0.999)) as u8,
+            (256. * clamp(self.b, 0.0, 0.999)) as u8,
+        ]
+    }
+
+    pub fn gamma_correct(&self) -> Colour {
+        Colour::new(self.r.sqrt(), self.g.sqrt(), self.b.sqrt())
+    }
+
+    pub fn gamma_correct_mut(&mut self) {
+        self.r = self.r.sqrt();
+        self.g = self.g.sqrt();
+        self.b = self.b.sqrt();
     }
 }
 

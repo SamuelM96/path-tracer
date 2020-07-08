@@ -8,6 +8,7 @@ use crate::colour::Colour;
 use crate::intersectable::Intersectable;
 use crate::sphere::Sphere;
 use rand::Rng;
+use std::io::{self, Write};
 use std::sync::Arc;
 use ultraviolet::Vec3;
 
@@ -18,9 +19,9 @@ fn main() {
     const IMAGE_WIDTH: u32 = 480;
     const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f32 / ASPECT_RATIO) as u32;
     const BACKGROUND: Colour = Colour {
-        r: 10.0,
-        g: 10.0,
-        b: 15.0,
+        r: 0.03,
+        g: 0.03,
+        b: 0.05,
     };
     const SAMPLES: u32 = 100;
 
@@ -44,18 +45,20 @@ fn main() {
         focus_distance,
     );
 
-    let (tx, rx) = std::sync::mpsc::channel();
+    let (tx, rx) = crossbeam::channel::unbounded();
     let threadpool = threadpool::ThreadPool::new(num_cpus::get());
-    let camera = Arc::new(camera);
-    let sphere = Arc::new(sphere);
+    let camera_lock = Arc::new(crossbeam::sync::ShardedLock::new(camera));
+    let sphere_lock = Arc::new(crossbeam::sync::ShardedLock::new(sphere));
 
     for y in 0..IMAGE_HEIGHT {
         let tx = tx.clone();
-        let camera = camera.clone();
-        let sphere = sphere.clone();
+        let camera_lock = camera_lock.clone();
+        let sphere_lock = sphere_lock.clone();
 
         threadpool.execute(move || {
             let mut rng = rand::thread_rng();
+            let camera = camera_lock.read().unwrap();
+            let sphere = sphere_lock.read().unwrap();
             for x in 0..IMAGE_WIDTH {
                 let mut pixel_colour = Colour::default();
 
@@ -66,7 +69,7 @@ fn main() {
 
                     if let Some(rec) = sphere.intersect(&ray) {
                         let cosine = rec.normal.dot(ray.direction);
-                        let r = 200.0 * cosine;
+                        let r = 1.0 * cosine;
                         let g = 0.0;
                         let b = 0.0;
 
@@ -76,18 +79,31 @@ fn main() {
                     }
                 }
 
+                pixel_colour.gamma_correct_mut();
+
                 tx.send((x, y, pixel_colour)).unwrap();
             }
         });
     }
 
-    for i in 0..(IMAGE_WIDTH * IMAGE_HEIGHT) {
+    let stdout = io::stdout();
+    let mut lock = std::io::BufWriter::new(stdout.lock());
+    let mut percent = 0;
+    const PIXEL_COUNT: u32 = IMAGE_WIDTH * IMAGE_HEIGHT;
+    const QUARTER_COUNT: u32 = PIXEL_COUNT / 4;
+    for i in 0..PIXEL_COUNT {
         let (x, y, colour) = rx.recv().unwrap();
         image.put_pixel(x, y, image::Rgb(colour.to_u8()));
-        println!("{}", i);
+
+        if i % QUARTER_COUNT == 0 {
+            percent += 25;
+            writeln!(lock, "{}% complete...", percent).unwrap();
+        }
     }
 
     image
         .save("output.png")
         .expect("Couldn't save `output.png`");
+
+    writeln!(lock, "Complete.").unwrap();
 }

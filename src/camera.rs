@@ -1,8 +1,8 @@
 use crate::utils::random_in_unit_disk;
 use ultraviolet::geometry::Ray;
-use ultraviolet::mat::Mat4;
-use ultraviolet::vec::{Vec3, Vec4};
+use ultraviolet::vec::Vec3;
 
+#[allow(dead_code)]
 pub struct Camera {
     origin: Vec3,
     lower_left_corner: Vec3,

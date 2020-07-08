@@ -2,6 +2,7 @@ use rand::Rng;
 use std::f32::consts::PI;
 use ultraviolet::vec::Vec3;
 
+#[allow(dead_code)]
 pub fn random_in_unit_disk() -> Vec3 {
     let mut rng = rand::thread_rng();
     loop {
@@ -15,6 +16,7 @@ pub fn random_in_unit_disk() -> Vec3 {
     }
 }
 
+#[allow(dead_code)]
 pub fn random_unit_vector() -> Vec3 {
     let mut rng = rand::thread_rng();
     let z: f32 = rng.gen_range(-1.0, 1.0);
