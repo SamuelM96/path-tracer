@@ -11,7 +11,7 @@ impl Sphere {
         Sphere { centre, radius }
     }
 
-    pub fn intersect(&self, ray: &Ray) -> f32 {
+    pub fn intersect(&self, ray: &Ray) -> (bool, f32) {
         let oc = ray.origin - self.centre;
         let a = ray.direction.dot(ray.direction);
         let b: f32 = 2.0 * oc.dot(ray.direction);
@@ -19,9 +19,9 @@ impl Sphere {
         let discriminant = b.powi(2) - 4.0 * a * c;
 
         if discriminant < 0.0 {
-            -1.0
+            (false, -1.0)
         } else {
-            (-b - discriminant.sqrt()) / (2.0 * a)
+            (true, (-b - discriminant.sqrt()) / (2.0 * a))
         }
     }
 }
