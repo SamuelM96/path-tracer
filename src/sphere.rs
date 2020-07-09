@@ -27,20 +27,20 @@ impl Intersectable for Sphere {
             let root = discriminant.sqrt();
             let numerator = -half_b - root;
             let numerator2 = -half_b + root;
-            let t;
+            let distance;
 
             if numerator > 0.0 {
-                t = numerator / a;
+                distance = numerator / a;
             } else if numerator2 > 0.0 {
-                t = numerator2 / a;
+                distance = numerator2 / a;
             } else {
                 return None;
             }
 
-            let point = ray.at_distance(t);
+            let point = ray.at_distance(distance);
             let normal = (point - self.centre).normalized();
 
-            Some(IntersectRecord { point, normal })
+            Some(IntersectRecord { point, normal, distance })
         }
     }
 }
