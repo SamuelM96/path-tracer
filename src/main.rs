@@ -8,7 +8,6 @@ use crate::colour::Colour;
 use crate::intersectable::Intersectable;
 use crate::sphere::Sphere;
 use rand::Rng;
-use std::io::{self, Write};
 use std::sync::Arc;
 use ultraviolet::Vec3;
 
@@ -68,8 +67,8 @@ fn main() {
                     let ray = camera.get_ray(u, v);
 
                     if let Some(rec) = sphere.intersect(&ray) {
-                        let cosine = rec.normal.dot(ray.direction);
-                        let r = 1.0 * cosine;
+                        let cosine = rec.normal.dot(-ray.direction);
+                        let r = cosine;
                         let g = 0.0;
                         let b = 0.0;
 
@@ -86,8 +85,6 @@ fn main() {
         });
     }
 
-    let stdout = io::stdout();
-    let mut lock = std::io::BufWriter::new(stdout.lock());
     let mut percent = 0;
     const PIXEL_COUNT: u32 = IMAGE_WIDTH * IMAGE_HEIGHT;
     const QUARTER_COUNT: u32 = PIXEL_COUNT / 4;
@@ -97,7 +94,7 @@ fn main() {
 
         if i % QUARTER_COUNT == 0 {
             percent += 25;
-            writeln!(lock, "{}% complete...", percent).unwrap();
+            println!("{}% complete...", percent);
         }
     }
 
@@ -105,5 +102,5 @@ fn main() {
         .save("output.png")
         .expect("Couldn't save `output.png`");
 
-    writeln!(lock, "Complete.").unwrap();
+    println!("Complete.");
 }

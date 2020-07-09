@@ -16,16 +16,28 @@ impl Sphere {
 impl Intersectable for Sphere {
     fn intersect(&self, ray: &Ray) -> Option<IntersectRecord> {
         let oc = ray.origin - self.centre;
-        let a = ray.direction.dot(ray.direction);
-        let b: f32 = 2.0 * oc.dot(ray.direction);
-        let c = oc.dot(oc) - self.radius.powi(2);
-        let discriminant = b.powi(2) - 4.0 * a * c;
+        let a = ray.direction.mag_sq();
+        let half_b: f32 = oc.dot(ray.direction);
+        let c = oc.mag_sq() - self.radius.powi(2);
+        let discriminant = half_b.powi(2) - a * c;
 
         if discriminant < 0.0 {
             None
         } else {
-            let t = (-b + discriminant.sqrt()) / (2.0 * a);
-            let point = ray.origin + t * ray.direction.normalized();
+            let root = discriminant.sqrt();
+            let numerator = -half_b - root;
+            let numerator2 = -half_b + root;
+            let t;
+
+            if numerator > 0.0 {
+                t = numerator / a;
+            } else if numerator2 > 0.0 {
+                t = numerator2 / a;
+            } else {
+                return None;
+            }
+
+            let point = ray.at_distance(t);
             let normal = (point - self.centre).normalized();
 
             Some(IntersectRecord { point, normal })
