@@ -1,18 +1,36 @@
 use num::clamp;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use ultraviolet::Vec3;
 
 #[allow(dead_code)]
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Colour {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
+    pub r: f64,
+    pub g: f64,
+    pub b: f64,
 }
 
 #[allow(dead_code)]
 impl Colour {
-    pub fn new(r: f32, g: f32, b: f32) -> Colour {
+    pub fn new(r: f64, g: f64, b: f64) -> Colour {
         Colour { r, g, b }
+    }
+
+    pub fn new_f32(r: f64, g: f64, b: f64) -> Colour {
+        Colour {
+            r: r as f64,
+            g: g as f64,
+            b: b as f64,
+        }
+    }
+
+    // Magenta for errors
+    pub fn error() -> Colour {
+        Colour {
+            r: 1.0,
+            g: 0.0,
+            b: 1.0,
+        }
     }
 
     pub fn to_u8(&self) -> [u8; 3] {
@@ -31,6 +49,12 @@ impl Colour {
         self.r = self.r.sqrt();
         self.g = self.g.sqrt();
         self.b = self.b.sqrt();
+    }
+}
+
+impl Into<Vec3> for Colour {
+    fn into(self) -> Vec3 {
+        Vec3::new(self.r as f32, self.g as f32, self.b as f32)
     }
 }
 
@@ -82,19 +106,39 @@ impl MulAssign<Colour> for Colour {
     }
 }
 
-impl Mul<f32> for Colour {
+impl Mul<f64> for Colour {
     type Output = Colour;
 
-    fn mul(self, rhs: f32) -> Self::Output {
+    fn mul(self, rhs: f64) -> Self::Output {
         Colour::new(self.r * rhs, self.g * rhs, self.b * rhs)
     }
 }
 
-impl MulAssign<f32> for Colour {
-    fn mul_assign(&mut self, rhs: f32) {
+impl MulAssign<f64> for Colour {
+    fn mul_assign(&mut self, rhs: f64) {
         self.r *= rhs;
         self.g *= rhs;
         self.b *= rhs;
+    }
+}
+
+impl Mul<Vec3> for Colour {
+    type Output = Colour;
+
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Colour::new(
+            self.r * rhs.x as f64,
+            self.g * rhs.y as f64,
+            self.b * rhs.z as f64,
+        )
+    }
+}
+
+impl MulAssign<Vec3> for Colour {
+    fn mul_assign(&mut self, rhs: Vec3) {
+        self.r *= rhs.x as f64;
+        self.g *= rhs.y as f64;
+        self.b *= rhs.z as f64;
     }
 }
 
@@ -102,14 +146,30 @@ impl Div<f32> for Colour {
     type Output = Colour;
 
     fn div(self, rhs: f32) -> Self::Output {
-        Colour::new(self.r / rhs, self.g / rhs, self.b / rhs)
+        let inv = 1.0 / (rhs as f64);
+        self * inv
     }
 }
 
 impl DivAssign<f32> for Colour {
     fn div_assign(&mut self, rhs: f32) {
-        self.r /= rhs;
-        self.g /= rhs;
-        self.b /= rhs;
+        let inv = 1.0 / (rhs as f64);
+        *self *= inv;
+    }
+}
+
+impl Div<f64> for Colour {
+    type Output = Colour;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        let inv = 1.0 / rhs;
+        self * inv
+    }
+}
+
+impl DivAssign<f64> for Colour {
+    fn div_assign(&mut self, rhs: f64) {
+        let inv = 1.0 / rhs;
+        *self *= inv;
     }
 }

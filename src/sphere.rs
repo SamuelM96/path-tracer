@@ -1,15 +1,21 @@
 use crate::intersectable::{IntersectRecord, Intersectable};
+use crate::material::MaterialID;
 use ultraviolet::geometry::Ray;
 use ultraviolet::Vec3;
 
 pub struct Sphere {
-    centre: Vec3,
-    radius: f32,
+    pub centre: Vec3,
+    pub radius: f32,
+    pub material_id: MaterialID,
 }
 
 impl Sphere {
-    pub fn new(centre: ultraviolet::Vec3, radius: f32) -> Sphere {
-        Sphere { centre, radius }
+    pub fn new(centre: Vec3, radius: f32, material_id: MaterialID) -> Sphere {
+        Sphere {
+            centre,
+            radius,
+            material_id,
+        }
     }
 }
 
@@ -40,7 +46,12 @@ impl Intersectable for Sphere {
             let point = ray.at_distance(distance);
             let normal = (point - self.centre).normalized();
 
-            Some(IntersectRecord { point, normal, distance })
+            Some(IntersectRecord {
+                point,
+                normal,
+                distance,
+                material_id: self.material_id,
+            })
         }
     }
 }

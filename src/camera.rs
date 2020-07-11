@@ -1,4 +1,5 @@
-use crate::utils::random_in_unit_disk;
+use rand::Rng;
+use rand_distr::{Distribution, UnitDisc};
 use ultraviolet::geometry::Ray;
 use ultraviolet::vec::Vec3;
 
@@ -12,6 +13,7 @@ pub struct Camera {
     v: Vec3,
     w: Vec3,
     lens_radius: f32,
+    unit_disc: UnitDisc,
 }
 
 #[allow(dead_code)]
@@ -40,6 +42,8 @@ impl Camera {
 
         let lens_radius = aperture / 2.0;
 
+        let unit_disc = UnitDisc {};
+
         Camera {
             origin,
             lower_left_corner,
@@ -49,16 +53,21 @@ impl Camera {
             v,
             w,
             lens_radius,
+            unit_disc,
         }
     }
 
-    pub fn get_ray(&self, s: f32, t: f32) -> Ray {
-        let rd = random_in_unit_disk() * self.lens_radius;
+    pub fn get_ray<R: Rng + ?Sized>(&self, s: f64, t: f64, sampler: &mut R) -> Ray {
+        let rand_unit_disc: [f32; 2] = self.unit_disc.sample(sampler);
+        let rand_unit_disc = Vec3::new(rand_unit_disc[0], rand_unit_disc[1], 0.0);
+        let rd = rand_unit_disc * self.lens_radius;
         let offset = self.u * rd.x + self.v * rd.y;
 
         Ray {
             origin: self.origin + offset,
-            direction: (self.lower_left_corner + self.horizontal * s + self.vertical * t
+            direction: (self.lower_left_corner
+                + self.horizontal * s as f32
+                + self.vertical * t as f32
                 - self.origin
                 - offset)
                 .normalized(),
