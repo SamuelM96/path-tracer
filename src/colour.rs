@@ -58,6 +58,12 @@ impl Into<Vec3> for Colour {
     }
 }
 
+impl From<Vec3> for Colour {
+    fn from(v: Vec3) -> Self {
+        Colour::new(v.x as f64, v.y as f64, v.z as f64)
+    }
+}
+
 impl Add<Colour> for Colour {
     type Output = Colour;
 
@@ -103,6 +109,26 @@ impl MulAssign<Colour> for Colour {
         self.r *= rhs.r;
         self.g *= rhs.g;
         self.b *= rhs.b;
+    }
+}
+
+impl Mul<f32> for Colour {
+    type Output = Colour;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Colour::new(
+            self.r * rhs as f64,
+            self.g * rhs as f64,
+            self.b * rhs as f64,
+        )
+    }
+}
+
+impl MulAssign<f32> for Colour {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.r *= rhs as f64;
+        self.g *= rhs as f64;
+        self.b *= rhs as f64;
     }
 }
 

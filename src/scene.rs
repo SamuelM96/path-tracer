@@ -25,12 +25,12 @@ impl Scene {
 }
 
 impl Intersectable for Scene {
-    fn intersect(&self, ray: &Ray) -> Option<IntersectRecord> {
-        let mut closest_distance = std::f32::INFINITY;
+    fn intersect(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<IntersectRecord> {
+        let mut closest_distance = t_max;
         let mut rec = None;
 
         for object in self.objects.iter() {
-            if let Some(temp_rec) = object.intersect(ray) {
+            if let Some(temp_rec) = object.intersect(ray, t_min, closest_distance) {
                 if temp_rec.distance < closest_distance {
                     closest_distance = temp_rec.distance;
                     rec = Some(temp_rec);

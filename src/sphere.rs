@@ -20,7 +20,7 @@ impl Sphere {
 }
 
 impl Intersectable for Sphere {
-    fn intersect(&self, ray: &Ray) -> Option<IntersectRecord> {
+    fn intersect(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<IntersectRecord> {
         let oc = ray.origin - self.centre;
         let a = ray.direction.mag_sq();
         let half_b: f32 = oc.dot(ray.direction);
@@ -35,9 +35,9 @@ impl Intersectable for Sphere {
             let numerator2 = -half_b + root;
             let distance;
 
-            if numerator > 0.0 {
+            if numerator > t_min && numerator < t_max {
                 distance = numerator / a;
-            } else if numerator2 > 0.0 {
+            } else if numerator2 > t_min && numerator2 < t_max {
                 distance = numerator2 / a;
             } else {
                 return None;

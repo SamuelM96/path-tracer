@@ -20,6 +20,34 @@ use ultraviolet::Vec3;
 
 mod sphere;
 
+#[allow(dead_code)]
+fn debug_normals(
+    ray: &Ray,
+    scene: &Scene,
+    depth: u32,
+    stop_depth: u32,
+    rng: &mut ThreadRng,
+) -> Colour {
+    if depth == 0 {
+        return Colour::default();
+    }
+
+    if let Some(rec) = scene.intersect(&ray, 0.001, std::f32::INFINITY) {
+        if depth == stop_depth {
+            return Colour::from(Vec3::new(0.5, 0.5, 0.5) + rec.normal * 0.5);
+        }
+        if let Some(material) = scene.materials.get(rec.material_id) {
+            if let Some((scattered, _)) = material.scatter(ray, &rec, rng) {
+                return debug_normals(&scattered, scene, depth - 1, stop_depth, rng);
+            }
+        } else {
+            return Colour::error();
+        }
+    }
+
+    Colour::default()
+}
+
 fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour {
     if depth == 0 {
         return Colour::default();
@@ -28,7 +56,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
     let mut pixel_colour = Colour::default();
 
     // TODO: Implement Monte Carlo Integration and ray tracing
-    if let Some(rec) = scene.intersect(&ray) {
+    if let Some(rec) = scene.intersect(&ray, 0.001, std::f32::INFINITY) {
         if let Some(material) = scene.materials.get(rec.material_id) {
             let emitted = material.emitted(0.0, 0.0, &rec.point);
             if let Some((scattered, colour)) = material.scatter(ray, &rec, rng) {
@@ -37,7 +65,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
                 pixel_colour += emitted;
             }
         } else {
-            pixel_colour = Colour::new(1.0, 0.0, 1.0);
+            pixel_colour = Colour::error();
         }
     }
 
@@ -86,11 +114,14 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
 
 fn main() {
     // Defaults
-    const ASPECT_RATIO: f32 = 16.0 / 9.0;
+    // const ASPECT_RATIO: f32 = 16.0 / 9.0;
+    const ASPECT_RATIO: f32 = 4.0 / 3.0;
     const IMAGE_WIDTH: u32 = 480;
     const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f32 / ASPECT_RATIO) as u32;
     const SAMPLES: u32 = 2000;
-    const MAX_DEPTH: u32 = 10;
+    const MAX_DEPTH: u32 = 50;
+    const STOP_DEPTH: u32 = MAX_DEPTH;
+    const DEBUG_NORMALS: bool = false;
 
     // Output image
     let mut image = image::ImageBuffer::new(IMAGE_WIDTH, IMAGE_HEIGHT);
@@ -126,7 +157,12 @@ fn main() {
                     let v = 1.0 - (y as f64 + rng.gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64;
                     let ray = camera.get_ray(u, v, &mut rng);
 
-                    pixel_colour += cast_ray(&ray, &scene, MAX_DEPTH, &mut rng) / SAMPLES as f64;
+                    if DEBUG_NORMALS {
+                        pixel_colour = debug_normals(&ray, &scene, MAX_DEPTH, STOP_DEPTH, &mut rng);
+                    } else {
+                        pixel_colour +=
+                            cast_ray(&ray, &scene, MAX_DEPTH, &mut rng) / SAMPLES as f64;
+                    }
                 }
 
                 // Output pixel colour

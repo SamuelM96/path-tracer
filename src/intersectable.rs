@@ -10,5 +10,5 @@ pub struct IntersectRecord {
 }
 
 pub trait Intersectable: Send + Sync {
-    fn intersect(&self, ray: &Ray) -> Option<IntersectRecord>;
+    fn intersect(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<IntersectRecord>;
 }
