@@ -30,7 +30,7 @@ impl Mul<&Ray> for Mat4 {
     fn mul(self, rhs: &Ray) -> Self::Output {
         Ray::new(
             (self * Vec4::new(rhs.origin.x, rhs.origin.y, rhs.origin.z, 1.0)).xyz(),
-            rhs.direction,
+            (self * Vec4::from(rhs.direction)).xyz(),
             rhs.t_min,
             rhs.t_max,
         )
