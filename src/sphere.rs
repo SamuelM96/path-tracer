@@ -3,7 +3,8 @@ use crate::intersectable::{IntersectRecord, Intersectable};
 use crate::material::MaterialID;
 use crate::ray::Ray;
 use crate::shape::Shape;
-use crate::utils::transform_swaps_handedness;
+use crate::utils::{quadratic, transform_swaps_handedness};
+use std::f32::consts::PI;
 use ultraviolet::{Mat4, Vec2, Vec3, Vec4};
 
 pub struct Sphere {
@@ -65,38 +66,34 @@ impl Intersectable for Sphere {
     fn intersect(&self, ray: &Ray, _test_alpha_textures: bool) -> Option<(IntersectRecord, f32)> {
         let oc = ray.origin - self.centre;
         let a = ray.direction.mag_sq();
-        let half_b: f32 = oc.dot(ray.direction);
+        let b = 2.0 * oc.dot(ray.direction);
         let c = oc.mag_sq() - self.radius.powi(2);
-        let discriminant = half_b.powi(2) - a * c;
-
-        if discriminant < 0.0 {
-            None
-        } else {
-            let root = discriminant.sqrt();
-            let numerator = -half_b - root;
-            let numerator2 = -half_b + root;
-            let distance;
-
-            if numerator > ray.t_min && numerator < ray.t_max {
-                distance = numerator / a;
-            } else if numerator2 > ray.t_min && numerator2 < ray.t_max {
-                distance = numerator2 / a;
+        if let Some((t0, t1)) = quadratic(a.into(), b.into(), c.into()) {
+            return if t0 > ray.t_max || t1 <= ray.t_min {
+                None
             } else {
-                return None;
-            }
+                let mut t_hit = t0;
+                if t_hit <= ray.t_min {
+                    t_hit = t1;
+                    if t1 > ray.t_max {
+                        return None;
+                    }
+                }
 
-            let point = ray.at(distance);
-            let normal = (point - self.centre).normalized();
+                let point = ray.at(t_hit);
+                let normal = (point - self.centre).normalized();
 
-            Some((
-                IntersectRecord {
-                    point,
-                    normal,
-                    material_id: self.material_id,
-                },
-                distance,
-            ))
+                Some((
+                    IntersectRecord {
+                        point,
+                        normal,
+                        material_id: self.material_id,
+                    },
+                    t_hit,
+                ))
+            };
         }
+        None
     }
 }
 
@@ -128,8 +125,9 @@ impl Shape for Sphere {
         self.transform_swaps_handedness
     }
 
+    #[inline]
     fn area(&self) -> f32 {
-        unimplemented!()
+        4.0 * PI * self.radius.powi(2)
     }
 
     fn pdf_wi(&self, rec: &IntersectRecord, wi: &Vec3) -> f32 {

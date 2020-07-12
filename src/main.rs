@@ -34,7 +34,7 @@ fn debug_normals(
         return Colour::default();
     }
 
-    if let Some((rec, distance)) = scene.intersect(&ray, true) {
+    if let Some((rec, _)) = scene.intersect(&ray, true) {
         if depth == stop_depth {
             return Colour::from(Vec3::new(0.5, 0.5, 0.5) + rec.normal * 0.5);
         }
