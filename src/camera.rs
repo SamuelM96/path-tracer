@@ -1,7 +1,7 @@
+use crate::ray::Ray;
 use rand::Rng;
 use rand_distr::{Distribution, UnitDisc};
-use ultraviolet::geometry::Ray;
-use ultraviolet::vec::Vec3;
+use ultraviolet::Vec3;
 
 #[allow(dead_code)]
 pub struct Camera {
@@ -14,10 +14,13 @@ pub struct Camera {
     w: Vec3,
     lens_radius: f32,
     unit_disc: UnitDisc,
+    t_min: f32,
+    t_max: f32,
 }
 
 #[allow(dead_code)]
 impl Camera {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         origin: Vec3,
         target: Vec3,
@@ -26,6 +29,8 @@ impl Camera {
         aspect_ratio: f32,
         aperture: f32,
         focus_distance: f32,
+        t_min: f32,
+        t_max: f32,
     ) -> Camera {
         let theta = fov.to_radians();
         let h = (theta / 2.0).tan();
@@ -54,23 +59,26 @@ impl Camera {
             w,
             lens_radius,
             unit_disc,
+            t_min,
+            t_max,
         }
     }
 
+    // TODO: Use matrix transforms instead
     pub fn get_ray<R: Rng + ?Sized>(&self, s: f64, t: f64, sampler: &mut R) -> Ray {
         let rand_unit_disc: [f32; 2] = self.unit_disc.sample(sampler);
         let rand_unit_disc = Vec3::new(rand_unit_disc[0], rand_unit_disc[1], 0.0);
         let rd = rand_unit_disc * self.lens_radius;
         let offset = self.u * rd.x + self.v * rd.y;
 
-        Ray {
-            origin: self.origin + offset,
-            direction: (self.lower_left_corner
-                + self.horizontal * s as f32
-                + self.vertical * t as f32
+        Ray::new(
+            self.origin + offset,
+            (self.lower_left_corner + self.horizontal * s as f32 + self.vertical * t as f32
                 - self.origin
                 - offset)
                 .normalized(),
-        }
+            self.t_min,
+            self.t_max,
+        )
     }
 }

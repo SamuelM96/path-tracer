@@ -1,9 +1,9 @@
 use crate::colour::Colour;
 use crate::intersectable::IntersectRecord;
+use crate::ray::Ray;
 use rand::prelude::ThreadRng;
 use rand::Rng;
 use std::f64::consts::PI;
-use ultraviolet::geometry::Ray;
 use ultraviolet::Vec3;
 
 #[derive(Default, Copy, Clone, Debug)]
@@ -85,10 +85,7 @@ impl Material for Diffuse {
             + w * cos_theta as f32)
             .normalized();
 
-        let scattered = Ray {
-            origin: rec.point,
-            direction: d,
-        };
+        let scattered = Ray::new(rec.point, d, ray.t_min, ray.t_max);
         let colour = self.albedo;
 
         Some((scattered, colour))
@@ -97,16 +94,17 @@ impl Material for Diffuse {
 
 pub struct Light {
     pub albedo: Colour,
+    pub intensity: f32,
 }
 
 impl Light {
-    pub fn new(albedo: Colour) -> Light {
-        Light { albedo }
+    pub fn new(albedo: Colour, intensity: f32) -> Light {
+        Light { albedo, intensity }
     }
 }
 
 impl Material for Light {
     fn emitted(&self, _u: f32, _v: f32, _point: &Vec3) -> Colour {
-        self.albedo
+        self.albedo * self.intensity
     }
 }

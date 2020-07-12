@@ -1,22 +1,24 @@
+mod bounds;
 mod camera;
 mod colour;
 mod intersectable;
 mod material;
-mod primitive;
+mod ray;
 mod scene;
+mod shape;
 mod utils;
 
 use crate::camera::Camera;
 use crate::colour::Colour;
 use crate::intersectable::Intersectable;
 use crate::material::{Diffuse, Light};
+use crate::ray::Ray;
 use crate::scene::Scene;
 use crate::sphere::Sphere;
 use rand::prelude::ThreadRng;
 use rand::Rng;
 use std::sync::Arc;
-use ultraviolet::geometry::Ray;
-use ultraviolet::Vec3;
+use ultraviolet::{Mat4, Vec3};
 
 mod sphere;
 
@@ -32,7 +34,7 @@ fn debug_normals(
         return Colour::default();
     }
 
-    if let Some(rec) = scene.intersect(&ray, 0.001, std::f32::INFINITY) {
+    if let Some((rec, distance)) = scene.intersect(&ray, true) {
         if depth == stop_depth {
             return Colour::from(Vec3::new(0.5, 0.5, 0.5) + rec.normal * 0.5);
         }
@@ -56,7 +58,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
     let mut pixel_colour = Colour::default();
 
     // TODO: Implement Monte Carlo Integration and ray tracing
-    if let Some(rec) = scene.intersect(&ray, 0.001, std::f32::INFINITY) {
+    if let Some((rec, _)) = scene.intersect(&ray, true) {
         if let Some(material) = scene.materials.get(rec.material_id) {
             let emitted = material.emitted(0.0, 0.0, &rec.point);
             if let Some((scattered, colour)) = material.scatter(ray, &rec, rng) {
@@ -77,24 +79,41 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     let mut scene = Scene::default();
 
     // Materials Setup
-    let ground_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.3, 0.3, 0.3))));
-    let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
-    let light_mat = scene.add_material(Box::new(Light::new(Colour::new(10.0, 10.0, 10.0))));
+    let ground_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.7, 0.7, 0.7))));
+    let left_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.6, 0.1, 0.1))));
+    let right_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.1, 0.6, 0.1))));
+    let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
+    // let sphere_mat2 = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
+    let light_mat = scene.add_material(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
 
     // Objects Setup
-    let ground = Sphere::new(Vec3::new(0.0, -1001.0, 1.0), 1000.0, ground_mat);
+    let ground = Sphere::new(Vec3::new(0.0, -1001.0, 1.0), 1000.0, ground_mat, false);
     scene.add_object(Box::new(ground));
-    let sphere = Sphere::new(Vec3::new(0.0, 0.0, 1.0), 1.0, sphere_mat);
+    let left_wall = Sphere::new(Vec3::new(-1003.0, 0.0, 1.0), 1000.0, left_wall_mat, false);
+    scene.add_object(Box::new(left_wall));
+    let right_wall = Sphere::new(Vec3::new(1003.0, 0.0, 1.0), 1000.0, right_wall_mat, false);
+    scene.add_object(Box::new(right_wall));
+    let back_wall = Sphere::new(Vec3::new(0.0, 0.0, 1003.0), 1000.0, ground_mat, false);
+    scene.add_object(Box::new(back_wall));
+    let ceiling = Sphere::new(Vec3::new(0.0, 1003.0, 1.0), 1000.0, ground_mat, false);
+    scene.add_object(Box::new(ceiling));
+
+    let sphere = Sphere::new(Vec3::new(1.0, 0.0, 1.0), 1.0, sphere_mat, false);
     scene.add_object(Box::new(sphere));
+    let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, 1.0), 1.0, sphere_mat, false);
+    scene.add_object(Box::new(sphere2));
 
     // Lighting setup
-    let light = Sphere::new(Vec3::new(2.0, 0.0, 0.5), 0.5, light_mat);
-    scene.add_light_pos(light.centre.clone());
+    let pos = Vec3::new(0.0, 3.0, 0.5);
+    let otw = Mat4::from_translation(pos);
+    let wto = Mat4::from_translation(-pos);
+    let light = Sphere::from_transform(otw, wto, 0.5, light_mat, false);
+    scene.add_light_pos(pos);
     scene.add_object(Box::new(light));
 
     // Camera Setup
-    let origin = Vec3::new(0.0, 0.0, -5.0);
-    let target = Vec3::new(0.0, 0.0, 0.0);
+    let origin = Vec3::new(0.0, 1.5, -5.0);
+    let target = Vec3::new(0.0, 1.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
     let fov = 50.0;
     let aperture = 0.0;
@@ -107,25 +126,29 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
         aspect_ratio,
         aperture,
         focus_distance,
+        0.001,
+        std::f32::INFINITY,
     );
 
     (scene, camera)
 }
 
 fn main() {
+    // TODO: Command line arguments
     // Defaults
     // const ASPECT_RATIO: f32 = 16.0 / 9.0;
     const ASPECT_RATIO: f32 = 4.0 / 3.0;
     const IMAGE_WIDTH: u32 = 480;
     const IMAGE_HEIGHT: u32 = (IMAGE_WIDTH as f32 / ASPECT_RATIO) as u32;
-    const SAMPLES: u32 = 2000;
-    const MAX_DEPTH: u32 = 50;
+    const SAMPLES: u32 = 1000;
+    const MAX_DEPTH: u32 = 10;
     const STOP_DEPTH: u32 = MAX_DEPTH;
     const DEBUG_NORMALS: bool = false;
 
     // Output image
     let mut image = image::ImageBuffer::new(IMAGE_WIDTH, IMAGE_HEIGHT);
 
+    // TODO: Support parsing a file for scene setup
     // Setup scene and camera
     let (scene, camera) = scene_setup(ASPECT_RATIO);
 
@@ -182,7 +205,7 @@ fn main() {
         // Update user on progress
         if i % IMAGE_WIDTH == 0 {
             let percent = i as f64 / PIXEL_COUNT as f64 * 100.0;
-            println!("{:>5.2}% complete...", percent);
+            println!("\r{:>5.2}% complete...", percent);
         }
     }
 
