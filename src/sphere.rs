@@ -68,7 +68,7 @@ impl Intersectable for Sphere {
         let a = ray.direction.mag_sq();
         let b = 2.0 * oc.dot(ray.direction);
         let c = oc.mag_sq() - self.radius.powi(2);
-        if let Some((t0, t1)) = quadratic(a.into(), b.into(), c.into()) {
+        if let Some((t0, t1)) = quadratic(a as f64, b as f64, c as f64) {
             return if t0 > ray.t_max || t1 <= ray.t_min {
                 None
             } else {
@@ -130,7 +130,7 @@ impl Shape for Sphere {
         4.0 * PI * self.radius.powi(2)
     }
 
-    fn pdf_wi(&self, rec: &IntersectRecord, wi: &Vec3) -> f32 {
+    fn pdf_wi(&self, _rec: &IntersectRecord, _wi: &Vec3) -> f32 {
         unimplemented!()
     }
 
@@ -138,11 +138,11 @@ impl Shape for Sphere {
         unimplemented!()
     }
 
-    fn sample(&self, point: &Vec2) -> IntersectRecord {
+    fn sample(&self, _point: &Vec2) -> IntersectRecord {
         unimplemented!()
     }
 
-    fn sample_record(&self, _rec: &IntersectRecord, u: &Vec2) -> IntersectRecord {
+    fn sample_record(&self, _rec: &IntersectRecord, _u: &Vec2) -> IntersectRecord {
         unimplemented!()
     }
 }

@@ -1,6 +1,7 @@
 mod bounds;
 mod camera;
 mod colour;
+mod cylinder;
 mod intersectable;
 mod material;
 mod ray;
@@ -10,6 +11,7 @@ mod utils;
 
 use crate::camera::Camera;
 use crate::colour::Colour;
+use crate::cylinder::Cylinder;
 use crate::intersectable::Intersectable;
 use crate::material::{Diffuse, Light};
 use crate::ray::Ray;
@@ -18,7 +20,7 @@ use crate::sphere::Sphere;
 use rand::prelude::ThreadRng;
 use rand::Rng;
 use std::sync::Arc;
-use ultraviolet::{Mat4, Vec3};
+use ultraviolet::{Mat4, Rotor3, Vec3};
 
 mod sphere;
 
@@ -84,6 +86,7 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     let right_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.1, 0.6, 0.1))));
     let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
     // let sphere_mat2 = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
+    let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
     let light_mat = scene.add_material(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
 
     // Objects Setup
@@ -100,8 +103,28 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
 
     let sphere = Sphere::new(Vec3::new(1.0, 0.0, 1.0), 1.0, sphere_mat, false);
     scene.add_object(Box::new(sphere));
-    let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, 1.0), 1.0, sphere_mat, false);
-    scene.add_object(Box::new(sphere2));
+    // let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, 1.0), 1.0, sphere_mat, false);
+    // scene.add_object(Box::new(sphere2));
+
+    let pos = Vec3::new(-1.0, 0.0, 0.0);
+    let y_rot = 45.0_f32.to_radians();
+    // let mut otw = Mat4::from_translation(pos);
+    // let rot = Mat4::from_rotation_y(y_rot);
+    // otw = otw * rot;
+    // let mut wto = Mat4::from_translation(-pos);
+    // let rot = Mat4::from_rotation_y(-y_rot);
+    // wto = rot * wto;
+    // let cylinder = Cylinder::from_transform(otw, wto, 0.5, -0.5, 0.5, cylinder_mat, false);
+    let cylinder = Cylinder::new(
+        pos,
+        0.5,
+        1.0,
+        Rotor3::from_rotation_xz(y_rot),
+        1.0,
+        cylinder_mat,
+        false,
+    );
+    scene.add_object(Box::new(cylinder));
 
     // Lighting setup
     let pos = Vec3::new(0.0, 3.0, 0.5);
