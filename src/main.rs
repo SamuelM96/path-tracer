@@ -1,3 +1,21 @@
+use std::io::Seek;
+use std::io::Write;
+use std::sync::Arc;
+
+use rand::prelude::ThreadRng;
+use rand::Rng;
+use rayon::prelude::*;
+use ultraviolet::{Mat4, Rotor3, Vec3};
+
+use crate::camera::Camera;
+use crate::colour::Colour;
+use crate::cylinder::Cylinder;
+use crate::intersectable::Intersectable;
+use crate::material::{Diffuse, Light};
+use crate::ray::Ray;
+use crate::scene::Scene;
+use crate::sphere::Sphere;
+
 mod bounds;
 mod camera;
 mod colour;
@@ -8,19 +26,6 @@ mod ray;
 mod scene;
 mod shape;
 mod utils;
-
-use crate::camera::Camera;
-use crate::colour::Colour;
-use crate::cylinder::Cylinder;
-use crate::intersectable::Intersectable;
-use crate::material::{Diffuse, Light};
-use crate::ray::Ray;
-use crate::scene::Scene;
-use crate::sphere::Sphere;
-use rand::prelude::ThreadRng;
-use rand::Rng;
-use std::sync::Arc;
-use ultraviolet::{Mat4, Rotor3, Vec3};
 
 mod sphere;
 
@@ -156,6 +161,18 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     (scene, camera)
 }
 
+struct Tile {
+    pub x: u32,
+    pub y: u32,
+    pub data: image::RgbImage,
+}
+
+impl Tile {
+    pub fn new(x: u32, y: u32, data: image::RgbImage) -> Tile {
+        Tile { x, y, data }
+    }
+}
+
 fn main() {
     // TODO: Command line arguments
     // Defaults
@@ -167,74 +184,110 @@ fn main() {
     const MAX_DEPTH: u32 = 10;
     const STOP_DEPTH: u32 = MAX_DEPTH;
     const DEBUG_NORMALS: bool = false;
+    const TILE_SIZE_X: u32 = 16;
+    const TILE_SIZE_Y: u32 = 16;
+    const TILES_X: u32 = (IMAGE_WIDTH + TILE_SIZE_X - 1) / TILE_SIZE_X;
+    const TILES_Y: u32 = (IMAGE_HEIGHT + TILE_SIZE_Y - 1) / TILE_SIZE_Y;
+    const TOTAL_TILES: u32 = TILES_X * TILES_Y;
 
-    // Output image
-    let mut image = image::ImageBuffer::new(IMAGE_WIDTH, IMAGE_HEIGHT);
+    let time_date: chrono::DateTime<chrono::Utc> = chrono::Utc::now();
+    let time_start = std::time::Instant::now();
 
     // TODO: Support parsing a file for scene setup
     // Setup scene and camera
     let (scene, camera) = scene_setup(ASPECT_RATIO);
 
-    // Concurrency setup
-    let (tx, rx) = crossbeam::channel::unbounded();
-    let thread_pool = threadpool::ThreadPool::new(num_cpus::get());
-    let camera_lock = Arc::new(crossbeam::sync::ShardedLock::new(camera));
-    let scene_lock = Arc::new(crossbeam::sync::ShardedLock::new(scene));
+    // Output image
+    let mut image = image::ImageBuffer::new(IMAGE_WIDTH, IMAGE_HEIGHT);
 
     // Render scene
-    for y in 0..IMAGE_HEIGHT {
-        let tx = tx.clone();
-        let camera_lock = camera_lock.clone();
-        let scene_lock = scene_lock.clone();
+    let tiles = crossbeam::queue::ArrayQueue::new((TILES_X * TILES_Y) as usize);
+    (0..IMAGE_HEIGHT)
+        .into_par_iter()
+        .step_by(TILE_SIZE_Y as usize)
+        .for_each(|y| {
+            let mut rng = rand::thread_rng();
+            for x in (0..IMAGE_WIDTH).step_by(TILE_SIZE_X as usize) {
+                // Current tile to render
+                let mut tile = Tile::new(
+                    x as u32,
+                    y as u32,
+                    image::RgbImage::new(TILE_SIZE_X, TILE_SIZE_Y),
+                );
 
-        // TODO: Separate image into tiles for each thread to work on
-        // Process rows concurrently
-        thread_pool.execute(move || {
-            let camera = camera_lock.read().unwrap();
-            let scene = scene_lock.read().unwrap();
+                // Core render loop
+                for (tx, ty, pixel) in tile.data.enumerate_pixels_mut() {
+                    let mut pixel_colour = Colour::default();
 
-            for x in 0..IMAGE_WIDTH {
-                let mut pixel_colour = Colour::default();
-                let mut rng = rand::thread_rng();
+                    // TODO: Unroll and use SIMD vectors
+                    // Jitter rays around
+                    for _ in 0..SAMPLES {
+                        let u = ((x + tx) as f64 + rng.gen::<f64>()) / (IMAGE_WIDTH - 1) as f64;
+                        let v =
+                            1.0 - ((y + ty) as f64 + rng.gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64;
+                        let ray = camera.get_ray(u, v, &mut rng);
 
-                // Jitter rays around
-                for _ in 0..SAMPLES {
-                    let u = (x as f64 + rng.gen::<f64>()) / (IMAGE_WIDTH - 1) as f64;
-                    let v = 1.0 - (y as f64 + rng.gen::<f64>()) / (IMAGE_HEIGHT - 1) as f64;
-                    let ray = camera.get_ray(u, v, &mut rng);
-
-                    if DEBUG_NORMALS {
-                        pixel_colour = debug_normals(&ray, &scene, MAX_DEPTH, STOP_DEPTH, &mut rng);
-                    } else {
-                        pixel_colour +=
-                            cast_ray(&ray, &scene, MAX_DEPTH, &mut rng) / SAMPLES as f64;
+                        if DEBUG_NORMALS {
+                            pixel_colour =
+                                debug_normals(&ray, &scene, MAX_DEPTH, STOP_DEPTH, &mut rng);
+                        } else {
+                            pixel_colour +=
+                                cast_ray(&ray, &scene, MAX_DEPTH, &mut rng) / SAMPLES as f64;
+                        }
                     }
+
+                    // Output pixel colour
+                    pixel_colour.gamma_correct_mut();
+                    *pixel = image::Rgb(pixel_colour.to_u8());
                 }
 
-                // Output pixel colour
-                pixel_colour.gamma_correct_mut();
-                tx.send((x, y, pixel_colour)).unwrap();
+                tiles.push(tile).unwrap();
+
+                // TODO: Don't flood output
+                // Update user on progress
+                println!("{:>6.2}", tiles.len() as f64 / TOTAL_TILES as f64 * 100.0)
             }
         });
+
+    // Draw tiles to output image
+    while !tiles.is_empty() {
+        let tile = tiles.pop().unwrap();
+        image::imageops::overlay(&mut image, &tile.data, tile.x, tile.y);
     }
 
-    // Collect results
-    const PIXEL_COUNT: u32 = IMAGE_WIDTH * IMAGE_HEIGHT;
-    for i in 0..PIXEL_COUNT {
-        let (x, y, colour) = rx.recv().unwrap();
-        image.put_pixel(x, y, image::Rgb(colour.to_u8()));
-
-        // TODO: Don't flood stdout
-        // Update user on progress
-        if i % IMAGE_WIDTH == 0 {
-            let percent = i as f64 / PIXEL_COUNT as f64 * 100.0;
-            println!("\r{:>5.2}% complete...", percent);
-        }
-    }
-
+    // Save
     image
         .save("output.png")
         .expect("Couldn't save `output.png`");
 
     println!("Complete.");
+
+    // Report execution time
+    let time_end = time_start.elapsed();
+    let total_seconds = time_end.as_secs() as f64 + (time_end.subsec_nanos() as f64 / 1000000000.0);
+    println!("\nTotal Seconds: {}", total_seconds);
+
+    // Keep track of results overall
+    let mut results = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("results.csv")
+        .unwrap();
+
+    writeln!(
+        &mut results,
+        "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+        time_date.to_rfc3339(),
+        IMAGE_WIDTH,
+        IMAGE_HEIGHT,
+        TILES_X,
+        TILE_SIZE_X,
+        TILES_Y,
+        TILE_SIZE_Y,
+        SAMPLES,
+        MAX_DEPTH,
+        DEBUG_NORMALS,
+        total_seconds
+    )
+    .unwrap();
 }
