@@ -1,4 +1,3 @@
-use std::io::Seek;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -91,7 +90,7 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     let right_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.1, 0.6, 0.1))));
     let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
     // let sphere_mat2 = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
-    let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
+    let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.9, 0.9, 0.9))));
     let light_mat = scene.add_material(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
 
     // Objects Setup

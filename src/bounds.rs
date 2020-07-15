@@ -8,6 +8,7 @@ pub struct Bounds3 {
     pub p_max: Vec3,
 }
 
+#[allow(dead_code)]
 impl Bounds3 {
     pub fn new(p_min: Vec3, p_max: Vec3) -> Bounds3 {
         Bounds3 { p_min, p_max }
