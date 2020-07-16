@@ -1,40 +1,79 @@
 use crate::ray::Ray;
-use crate::utils::gamma;
 use std::ops::Mul;
 use ultraviolet::{Mat4, Vec3, Vec4};
 
+#[derive(Copy, Clone, Default)]
 pub struct Bounds3 {
     pub p_min: Vec3,
     pub p_max: Vec3,
+    pub centroid: Vec3,
 }
 
 #[allow(dead_code)]
 impl Bounds3 {
     pub fn new(p_min: Vec3, p_max: Vec3) -> Bounds3 {
-        Bounds3 { p_min, p_max }
+        let centroid = p_min + (p_max - p_min) / 2.0;
+        Bounds3 {
+            p_min,
+            p_max,
+            centroid,
+        }
     }
 
-    fn intersect_predicate(&self, ray: &Ray) -> Option<(f32, f32)> {
-        let mut t0 = ray.t_min;
-        let mut t1 = ray.t_max;
+    pub fn maximum_extent(&self) -> usize {
+        let diagonal = self.p_max - self.p_min;
+        if diagonal.x > diagonal.y && diagonal.x > diagonal.z {
+            0
+        } else if diagonal.y > diagonal.z {
+            1
+        } else {
+            2
+        }
+    }
+
+    pub fn union(&self, b: &Bounds3) -> Bounds3 {
+        Bounds3::new(
+            self.p_min.min_by_component(b.p_min),
+            self.p_max.max_by_component(b.p_max),
+        )
+    }
+
+    pub fn union_point(&self, b: Vec3) -> Bounds3 {
+        Bounds3::new(
+            self.p_min.min_by_component(b),
+            self.p_max.max_by_component(b),
+        )
+    }
+
+    pub fn intersect_bounds(&self, b: &Bounds3) -> bool {
+        self.p_max.x > b.p_min.x
+            && self.p_min.x < b.p_max.x
+            && self.p_max.y > b.p_min.y
+            && self.p_min.y < b.p_max.y
+            && self.p_max.z > b.p_min.z
+            && self.p_min.z < b.p_max.z
+    }
+
+    pub fn intersect(&self, ray: &Ray) -> bool {
+        let mut t_min = ray.t_min;
+        let mut t_max = ray.t_max;
 
         for i in 0..3 {
             let inv_dir = 1.0 / ray.direction[i];
-            let mut t_near = (self.p_min[i] - ray.origin[i]) * inv_dir;
-            let mut t_far = (self.p_max[i] - ray.origin[i]) * inv_dir;
-            if t_near > t_far {
-                std::mem::swap(&mut t_near, &mut t_far);
+            let mut t0 = (self.p_min[i] - ray.origin[i]) * inv_dir;
+            let mut t1 = (self.p_max[i] - ray.origin[i]) * inv_dir;
+            if inv_dir < 0.0 {
+                std::mem::swap(&mut t0, &mut t1);
             }
-            t_far *= 1.0 + 2.0 * gamma(3);
 
-            t0 = t_near.max(t0);
-            t1 = t_far.max(t1);
-            if t0 > t1 {
-                return None;
+            t_min = t0.max(t_min);
+            t_max = t1.min(t_max);
+            if t_max <= t_min {
+                return false;
             }
         }
 
-        Some((t0, t1))
+        true
     }
 }
 

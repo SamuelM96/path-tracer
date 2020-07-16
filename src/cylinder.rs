@@ -37,7 +37,7 @@ impl Cylinder {
             Vec4::new(rot[0][0], rot[1][0], rot[2][0], 0.0),
             Vec4::new(rot[0][1], rot[1][1], rot[2][1], 0.0),
             Vec4::new(rot[0][2], rot[1][2], rot[2][2], 0.0),
-            Vec4::new(0.0, 0.0, 0.0, 0.0),
+            Vec4::new(0.0, 0.0, 0.0, 1.0),
         );
 
         let object_to_world = Mat4::from_translation(centre) * Mat4::from_scale(scale) * rot;
@@ -47,7 +47,7 @@ impl Cylinder {
             Vec4::new(rot[0][0], rot[1][0], rot[2][0], 0.0),
             Vec4::new(rot[0][1], rot[1][1], rot[2][1], 0.0),
             Vec4::new(rot[0][2], rot[1][2], rot[2][2], 0.0),
-            Vec4::new(0.0, 0.0, 0.0, 0.0),
+            Vec4::new(0.0, 0.0, 0.0, 1.0),
         );
         let world_to_object = rot * Mat4::from_scale(1.0 / scale) * Mat4::from_translation(-centre);
 
@@ -148,7 +148,10 @@ impl Intersectable for Cylinder {
 
 impl Shape for Cylinder {
     fn object_bounds(&self) -> Bounds3 {
-        unimplemented!()
+        Bounds3::new(
+            Vec3::new(-self.radius, -self.radius, self.z_min),
+            Vec3::new(self.radius, self.radius, self.z_max),
+        )
     }
 
     fn world_bounds(&self) -> Bounds3 {
