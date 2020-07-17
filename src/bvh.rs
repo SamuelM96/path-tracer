@@ -1,23 +1,8 @@
 use crate::bounds::Bounds3;
-use crate::intersectable::{IntersectRecord, Intersectable};
+use crate::intersectable::IntersectRecord;
 use crate::ray::Ray;
 use crate::shape::Shape;
 use crate::utils::partition;
-use std::sync::Arc;
-
-#[allow(dead_code)]
-#[derive(Default)]
-pub struct BVH {
-    pub root: BVHNode,
-    pub shapes: Vec<Arc<dyn Shape>>,
-}
-
-#[allow(dead_code)]
-impl BVH {
-    pub fn intersect(&self, ray: &Ray, test_texture_alpha: bool) -> Option<(IntersectRecord, f32)> {
-        self.root.intersect(&self.shapes, ray, test_texture_alpha)
-    }
-}
 
 #[allow(dead_code)]
 #[derive(Default)]
@@ -51,36 +36,24 @@ impl BVHNode {
         }
     }
 
-    pub fn construct(shapes: &mut Vec<Arc<dyn Shape>>) -> BVH {
-        let mut ordered_shapes = Vec::new();
+    pub fn construct(shapes: &mut Vec<Box<dyn Shape>>) -> BVHNode {
         let len = shapes.len();
-        let node = Self::construct_recurse(&mut shapes[0..len], &mut ordered_shapes);
-
-        BVH {
-            root: node,
-            shapes: ordered_shapes,
-        }
+        Self::construct_recurse(&mut shapes[..], 0, len)
     }
 
-    fn construct_recurse(
-        shapes: &mut [Arc<dyn Shape>],
-        ordered_shapes: &mut Vec<Arc<dyn Shape>>,
-    ) -> BVHNode {
-        let start_bounds = shapes[0].world_bounds();
+    fn construct_recurse(shapes: &mut [Box<dyn Shape>], start: usize, end: usize) -> BVHNode {
+        let start_bounds = shapes[start].world_bounds();
         let mut bounds = start_bounds;
-        for shape in shapes.iter().skip(1) {
+        for shape in shapes[start + 1..end].iter() {
             bounds = bounds.union(&shape.world_bounds());
         }
 
-        let count = shapes.len();
+        let count = end - start;
         if count == 1 {
-            let offset = ordered_shapes.len();
-            ordered_shapes.push(shapes[0].clone());
-
-            BVHNode::create_leaf(offset, count, bounds)
+            BVHNode::create_leaf(start, count, bounds)
         } else {
             let mut centroid_bounds = Bounds3::new(start_bounds.centroid, start_bounds.centroid);
-            for shape in shapes.iter().skip(1) {
+            for shape in shapes[start + 1..end].iter() {
                 centroid_bounds = centroid_bounds.union_point(shape.world_bounds().centroid);
             }
             let dim = centroid_bounds.maximum_extent();
@@ -90,20 +63,17 @@ impl BVHNode {
                 .unwrap()
                 == std::cmp::Ordering::Equal
             {
-                let offset = ordered_shapes.len();
-                for shape in shapes.iter() {
-                    ordered_shapes.push(shape.clone());
-                }
-
-                BVHNode::create_leaf(offset, count, bounds)
+                BVHNode::create_leaf(start, count, bounds)
             } else {
                 let p_mid = (centroid_bounds.p_min[dim] + centroid_bounds.p_max[dim]) / 2.0;
-                let (left, right) =
-                    partition(shapes, |shape| shape.world_bounds().centroid[dim] < p_mid);
+                partition(&mut shapes[start..end], |shape| {
+                    shape.world_bounds().centroid[dim] < p_mid
+                });
+                let mid = start + count / 2;
 
                 BVHNode::create_parent(
-                    Box::new(BVHNode::construct_recurse(left, ordered_shapes)),
-                    Box::new(BVHNode::construct_recurse(right, ordered_shapes)),
+                    Box::new(BVHNode::construct_recurse(shapes, start, mid)),
+                    Box::new(BVHNode::construct_recurse(shapes, mid, end)),
                     bounds,
                 )
             }
@@ -112,7 +82,7 @@ impl BVHNode {
 
     pub fn intersect(
         &self,
-        shapes: &[Arc<dyn Shape>],
+        shapes: &[Box<dyn Shape>],
         ray: &Ray,
         test_alpha_textures: bool,
     ) -> Option<(IntersectRecord, f32)> {
@@ -141,8 +111,8 @@ impl BVHNode {
                     None => None,
                 }
             } else {
-                for i in self.offset..self.offset + self.count {
-                    if let Some((rec, dist)) = shapes[i].intersect(ray, test_alpha_textures) {
+                for shape in shapes[self.offset..self.offset + self.count].iter() {
+                    if let Some((rec, dist)) = shape.intersect(ray, test_alpha_textures) {
                         if dist < distance {
                             distance = dist;
                             record = Some(rec);

@@ -2,7 +2,7 @@ use crate::ray::Ray;
 use std::ops::Mul;
 use ultraviolet::{Mat4, Vec3, Vec4};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Bounds3 {
     pub p_min: Vec3,
     pub p_max: Vec3,

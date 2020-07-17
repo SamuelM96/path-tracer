@@ -1,25 +1,20 @@
-mod bvh;
-
-use std::io::Write;
-use std::sync::Arc;
-
 use rand::prelude::ThreadRng;
 use rand::Rng;
 use rayon::prelude::*;
+use std::io::Write;
 use ultraviolet::{Mat4, Rotor3, Vec3};
 
-use crate::bounds::Bounds3;
 use crate::camera::Camera;
 use crate::colour::Colour;
 use crate::cylinder::Cylinder;
 use crate::intersectable::Intersectable;
-use crate::material::{Diffuse, Light, MaterialStore};
+use crate::material::{Diffuse, Light};
 use crate::ray::Ray;
 use crate::scene::Scene;
-use crate::shape::Shape;
 use crate::sphere::Sphere;
 
 mod bounds;
+mod bvh;
 mod camera;
 mod colour;
 mod cylinder;
@@ -28,9 +23,8 @@ mod material;
 mod ray;
 mod scene;
 mod shape;
-mod utils;
-
 mod sphere;
+mod utils;
 
 #[allow(dead_code)]
 fn debug_normals(
@@ -86,36 +80,33 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
 
 fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     // Scene Setup
-    // let mut scene = Scene::default();
-    let mut objects: Vec<Arc<dyn Shape>> = Vec::new();
-    let mut light_positions = Vec::new();
-    let mut materials = MaterialStore::new();
+    let mut scene = Scene::default();
 
     // Materials Setup
-    let ground_mat = materials.add(Box::new(Diffuse::new(Colour::new(0.7, 0.7, 0.7))));
-    let left_wall_mat = materials.add(Box::new(Diffuse::new(Colour::new(0.6, 0.1, 0.1))));
-    let right_wall_mat = materials.add(Box::new(Diffuse::new(Colour::new(0.1, 0.6, 0.1))));
-    let sphere_mat = materials.add(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
-    // let sphere_mat2 = materials.add(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
-    let cylinder_mat = materials.add(Box::new(Diffuse::new(Colour::new(0.9, 0.9, 0.9))));
-    let light_mat = materials.add(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
+    let ground_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.7, 0.7, 0.7))));
+    let left_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.6, 0.1, 0.1))));
+    let right_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.1, 0.6, 0.1))));
+    let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
+    // let sphere_mat2 = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
+    let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.9, 0.9, 0.9))));
+    let light_mat = scene.add_material(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
 
     // Objects Setup
     let ground = Sphere::new(Vec3::new(0.0, -1001.0, 1.0), 1000.0, ground_mat, false);
-    objects.push(Arc::new(ground));
+    scene.add_object(Box::new(ground));
     let left_wall = Sphere::new(Vec3::new(-1003.0, 0.0, 1.0), 1000.0, left_wall_mat, false);
-    objects.push(Arc::new(left_wall));
+    scene.add_object(Box::new(left_wall));
     let right_wall = Sphere::new(Vec3::new(1003.0, 0.0, 1.0), 1000.0, right_wall_mat, false);
-    objects.push(Arc::new(right_wall));
+    scene.add_object(Box::new(right_wall));
     let back_wall = Sphere::new(Vec3::new(0.0, 0.0, 1003.0), 1000.0, ground_mat, false);
-    objects.push(Arc::new(back_wall));
+    scene.add_object(Box::new(back_wall));
     let ceiling = Sphere::new(Vec3::new(0.0, 1003.0, 1.0), 1000.0, ground_mat, false);
-    objects.push(Arc::new(ceiling));
+    scene.add_object(Box::new(ceiling));
 
     let sphere = Sphere::new(Vec3::new(1.0, 0.0, 1.0), 1.0, sphere_mat, false);
-    objects.push(Arc::new(sphere));
+    scene.add_object(Box::new(sphere));
     // let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, 1.0), 1.0, sphere_mat, false);
-    // scene.push(Arc::new(sphere2));
+    // scene.add_object(Box::new(sphere2));
 
     let pos = Vec3::new(-1.0, 0.0, 0.0);
     let y_rot = 0.0_f32.to_radians();
@@ -135,17 +126,16 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
         cylinder_mat,
         false,
     );
-    objects.push(Arc::new(cylinder));
+    scene.add_object(Box::new(cylinder));
 
     // Lighting setup
     let pos = Vec3::new(0.0, 3.0, 0.5);
     let otw = Mat4::from_translation(pos);
     let wto = Mat4::from_translation(-pos);
     let light = Sphere::from_transform(otw, wto, 0.5, light_mat, false);
-    light_positions.push(pos);
-    objects.push(Arc::new(light));
-
-    let scene = Scene::new(&mut objects, light_positions, materials);
+    scene.add_light_pos(pos);
+    scene.add_object(Box::new(light));
+    scene.generate_bvh();
 
     // Camera Setup
     let origin = Vec3::new(0.0, 1.5, -5.0);
@@ -298,9 +288,4 @@ fn main() {
         total_seconds
     )
     .unwrap();
-
-    let a = Bounds3::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 1.0, 1.0));
-    let b = Bounds3::new(Vec3::new(0.5, 2.0, 0.5), Vec3::new(1.0, 3.0, 3.0));
-
-    println!("{}", a.intersect_bounds(&b));
 }

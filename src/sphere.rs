@@ -5,7 +5,7 @@ use crate::ray::Ray;
 use crate::shape::Shape;
 use crate::utils::{quadratic, transform_swaps_handedness};
 use std::f32::consts::PI;
-use ultraviolet::{Mat4, Vec2, Vec3, Vec4};
+use ultraviolet::{Mat4, Vec2, Vec3};
 
 pub struct Sphere {
     pub centre: Vec3,

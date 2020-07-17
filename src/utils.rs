@@ -67,14 +67,24 @@ pub fn quadratic(a: f64, b: f64, c: f64) -> Option<(f32, f32)> {
 #[allow(dead_code)]
 #[inline]
 pub fn partition<T, P>(data: &mut [T], predicate: P) -> (&mut [T], &mut [T])
-where P: Fn(&T) -> bool {
+where
+    P: Fn(&T) -> bool,
+{
     let len = data.len();
-    if len == 0 { return (&mut [], &mut []); }
+    if len == 0 {
+        return (&mut [], &mut []);
+    }
     let (mut l, mut r) = (0, len - 1);
     loop {
-        while l < len && predicate(&data[l]) { l += 1 }
-        while r > 0 && !predicate(&data[r]) { r -= 1 }
-        if l >= r { return data.split_at_mut(l) }
+        while l < len && predicate(&data[l]) {
+            l += 1
+        }
+        while r > 0 && !predicate(&data[r]) {
+            r -= 1
+        }
+        if l >= r {
+            return data.split_at_mut(l);
+        }
         data.swap(l, r);
     }
 }
