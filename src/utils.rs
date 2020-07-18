@@ -88,3 +88,26 @@ where
         data.swap(l, r);
     }
 }
+
+#[allow(dead_code)]
+#[inline]
+pub fn create_coordinates_system(n: &Vec3) -> (Vec3, Vec3) {
+    let sign = 1.0_f32.copysign(n.z);
+    let a = -1.0 / (sign + n.z);
+    let b = n.x * n.y * a;
+    let b1 = Vec3::new(1.0 + sign * n.x * n.x * a, sign * b, -sign * n.x);
+    let b2 = Vec3::new(b, sign + n.y * n.y * a, -n.y);
+
+    (b1, b2)
+}
+
+#[allow(dead_code)]
+#[inline]
+pub fn uniform_sample_hemisphere(r1: f32, r2: f32) -> Vec3 {
+    let sin_theta = (1.0 - r1.powi(2)).sqrt();
+    let phi = 2.0 * PI * r2;
+    let x = sin_theta * phi.cos();
+    let y = sin_theta * phi.sin();
+
+    Vec3::new(x, y, r1)
+}

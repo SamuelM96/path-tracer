@@ -1,10 +1,11 @@
 use crate::colour::Colour;
 use crate::intersectable::IntersectRecord;
 use crate::ray::Ray;
+use crate::utils::{create_coordinates_system, uniform_sample_hemisphere};
 use rand::prelude::ThreadRng;
 use rand::Rng;
-use std::f64::consts::PI;
-use ultraviolet::Vec3;
+use std::f32::consts::PI;
+use ultraviolet::{Mat3, Vec3};
 
 #[derive(Default, Copy, Clone, Debug)]
 pub struct MaterialID(usize);
@@ -63,30 +64,15 @@ impl Material for Diffuse {
         rec: &IntersectRecord,
         rng: &mut ThreadRng,
     ) -> Option<(Ray, Colour)> {
-        let w = if rec.normal.dot(ray.direction) < 0.0 {
-            rec.normal
-        } else {
-            -rec.normal
-        };
-        let phi = rng.gen::<f64>() * 2.0 * PI;
-        let r2: f64 = rng.gen();
-        let sin_theta = r2.sqrt();
-        let cos_theta = (1.0 - r2).sqrt();
-        let u = (if w.x.abs() > 0.1 {
-            Vec3::new(0.0, 1.0, 0.0)
-        } else {
-            Vec3::new(1.0, 0.0, 0.0)
-        })
-        .cross(w)
-        .normalized();
-        let v = w.cross(u);
-        let d = (u * (phi.cos() * sin_theta) as f32
-            + v * (phi.sin() * sin_theta) as f32
-            + w * cos_theta as f32)
-            .normalized();
-
-        let scattered = Ray::new(rec.point, d, ray.t_min, ray.t_max);
-        let colour = self.albedo;
+        let r1 = rng.gen::<f32>();
+        let r2 = rng.gen::<f32>();
+        let n = rec.normal;
+        let (nt, nb) = create_coordinates_system(&n);
+        let scattered_local = uniform_sample_hemisphere(r1, r2);
+        let scattered_dir = scattered_local.x * nt + scattered_local.y * nb + scattered_local.z * n;
+        let scattered = Ray::new(rec.point, scattered_dir, ray.t_min, ray.t_max);
+        let cosine = r1 / PI;
+        let colour = self.albedo * cosine;
 
         Some((scattered, colour))
     }

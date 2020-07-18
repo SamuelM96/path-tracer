@@ -12,6 +12,7 @@ use crate::material::{Diffuse, Light};
 use crate::ray::Ray;
 use crate::scene::Scene;
 use crate::sphere::Sphere;
+use std::f32::consts::PI;
 
 mod bounds;
 mod bvh;
@@ -66,7 +67,9 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
         if let Some(material) = scene.materials.get(rec.material_id) {
             let emitted = material.emitted(0.0, 0.0, &rec.point);
             if let Some((scattered, colour)) = material.scatter(ray, &rec, rng) {
-                pixel_colour += emitted + colour * cast_ray(&scattered, scene, depth - 1, rng);
+                let pdf = 0.5 / PI;
+                pixel_colour +=
+                    emitted + colour * cast_ray(&scattered, scene, depth - 1, rng) / pdf;
             } else {
                 pixel_colour += emitted;
             }
@@ -74,8 +77,43 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
             pixel_colour = Colour::error();
         }
     }
+    // else {
+    //     pixel_colour = Colour::new(1.0, 1.0, 1.0);
+    // }
 
     pixel_colour
+}
+
+fn furnace_test(aspect_ratio: f32) -> (Scene, Camera) {
+    let mut scene = Scene::default();
+
+    let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.18, 0.18, 0.18))));
+
+    let sphere = Sphere::new(Vec3::new(0.0, 0.0, 0.0), 1.0, sphere_mat, false);
+    scene.add_object(Box::new(sphere));
+
+    scene.generate_bvh();
+
+    // Camera Setup
+    let origin = Vec3::new(0.0, 0.0, -5.0);
+    let target = Vec3::new(0.0, 0.0, 0.0);
+    let up = Vec3::new(0.0, 1.0, 0.0);
+    let fov = 50.0;
+    let aperture = 0.0;
+    let focus_distance = 10.0;
+    let camera = Camera::new(
+        origin,
+        target,
+        up,
+        fov,
+        aspect_ratio,
+        aperture,
+        focus_distance,
+        0.001,
+        std::f32::INFINITY,
+    );
+
+    (scene, camera)
 }
 
 fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
@@ -88,7 +126,7 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     let right_wall_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.1, 0.6, 0.1))));
     let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
     // let sphere_mat2 = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
-    let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.9, 0.9, 0.9))));
+    // let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.9, 0.9, 0.9))));
     let light_mat = scene.add_material(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
 
     // Objects Setup
@@ -108,8 +146,8 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     // let sphere2 = Sphere::new(Vec3::new(-1.0, 0.0, 1.0), 1.0, sphere_mat, false);
     // scene.add_object(Box::new(sphere2));
 
-    let pos = Vec3::new(-1.0, 0.0, 0.0);
-    let y_rot = 0.0_f32.to_radians();
+    // let pos = Vec3::new(-1.0, 0.0, 0.0);
+    // let y_rot = 0.0_f32.to_radians();
     // let mut otw = Mat4::from_translation(pos);
     // let rot = Mat4::from_rotation_y(y_rot);
     // otw = otw * rot;
@@ -117,16 +155,16 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     // let rot = Mat4::from_rotation_y(-y_rot);
     // wto = rot * wto;
     // let cylinder = Cylinder::from_transform(otw, wto, 0.5, -0.5, 0.5, cylinder_mat, false);
-    let cylinder = Cylinder::new(
-        pos,
-        0.5,
-        1.0,
-        Rotor3::from_rotation_xz(y_rot),
-        1.0,
-        cylinder_mat,
-        false,
-    );
-    scene.add_object(Box::new(cylinder));
+    // let cylinder = Cylinder::new(
+    //     pos,
+    //     0.5,
+    //     1.0,
+    //     Rotor3::from_rotation_xz(y_rot),
+    //     1.0,
+    //     cylinder_mat,
+    //     false,
+    // );
+    // scene.add_object(Box::new(cylinder));
 
     // Lighting setup
     let pos = Vec3::new(0.0, 3.0, 0.5);
@@ -194,6 +232,7 @@ fn main() {
     // TODO: Support parsing a file for scene setup
     // Setup scene and camera
     let (scene, camera) = scene_setup(ASPECT_RATIO);
+    // let (scene, camera) = furnace_test(ASPECT_RATIO);
 
     // Output image
     let mut image = image::ImageBuffer::new(IMAGE_WIDTH, IMAGE_HEIGHT);
