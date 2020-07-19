@@ -67,9 +67,10 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
         if let Some(material) = scene.materials.get(rec.material_id) {
             let emitted = material.emitted(0.0, 0.0, &rec.point);
             if let Some((scattered, colour)) = material.scatter(ray, &rec, rng) {
-                let pdf = 0.5 / PI;
+                let pdf = material.pdf();
+                let cosine = scattered.direction.dot(rec.normal) / PI;
                 pixel_colour +=
-                    emitted + colour * cast_ray(&scattered, scene, depth - 1, rng) / pdf;
+                    emitted + colour * cosine * cast_ray(&scattered, scene, depth - 1, rng) / pdf;
             } else {
                 pixel_colour += emitted;
             }

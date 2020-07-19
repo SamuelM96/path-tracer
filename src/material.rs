@@ -42,6 +42,11 @@ pub trait Material: Send + Sync {
         None
     }
 
+    #[inline]
+    fn pdf(&self) -> f32 {
+        0.5 * PI
+    }
+
     fn emitted(&self, _u: f32, _v: f32, _point: &Vec3) -> Colour {
         Colour::default()
     }
@@ -71,8 +76,7 @@ impl Material for Diffuse {
         let scattered_local = uniform_sample_hemisphere(r1, r2);
         let scattered_dir = scattered_local.x * nt + scattered_local.y * nb + scattered_local.z * n;
         let scattered = Ray::new(rec.point, scattered_dir, ray.t_min, ray.t_max);
-        let cosine = r1 / PI;
-        let colour = self.albedo * cosine;
+        let colour = self.albedo;
 
         Some((scattered, colour))
     }
