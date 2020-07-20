@@ -8,7 +8,7 @@ use crate::camera::Camera;
 use crate::colour::Colour;
 use crate::cylinder::Cylinder;
 use crate::intersectable::Intersectable;
-use crate::material::{Diffuse, Light};
+use crate::material::{Diffuse, Emissive};
 use crate::ray::Ray;
 use crate::scene::Scene;
 use crate::sphere::Sphere;
@@ -84,6 +84,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, depth: u32, rng: &mut ThreadRng) -> Colour
     pixel_colour
 }
 
+#[allow(dead_code)]
 fn furnace_test(aspect_ratio: f32) -> (Scene, Camera) {
     let mut scene = Scene::default();
 
@@ -116,6 +117,7 @@ fn furnace_test(aspect_ratio: f32) -> (Scene, Camera) {
     (scene, camera)
 }
 
+#[allow(dead_code)]
 fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     // Scene Setup
     let mut scene = Scene::default();
@@ -127,7 +129,7 @@ fn scene_setup(aspect_ratio: f32) -> (Scene, Camera) {
     let sphere_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.8, 0.8, 0.8))));
     // let sphere_mat2 = scene.add_material(Box::new(Diffuse::new(Colour::new(1.0, 0.0, 0.0))));
     // let cylinder_mat = scene.add_material(Box::new(Diffuse::new(Colour::new(0.9, 0.9, 0.9))));
-    let light_mat = scene.add_material(Box::new(Light::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
+    let light_mat = scene.add_material(Box::new(Emissive::new(Colour::new(1.0, 1.0, 1.0), 20.0)));
 
     // Objects Setup
     let ground = Sphere::new(Vec3::new(0.0, -1001.0, 1.0), 1000.0, ground_mat, false);

@@ -82,18 +82,18 @@ impl Material for Diffuse {
     }
 }
 
-pub struct Light {
+pub struct Emissive {
     pub albedo: Colour,
     pub intensity: f32,
 }
 
-impl Light {
-    pub fn new(albedo: Colour, intensity: f32) -> Light {
-        Light { albedo, intensity }
+impl Emissive {
+    pub fn new(albedo: Colour, intensity: f32) -> Emissive {
+        Emissive { albedo, intensity }
     }
 }
 
-impl Material for Light {
+impl Material for Emissive {
     fn emitted(&self, _u: f32, _v: f32, _point: &Vec3) -> Colour {
         self.albedo * self.intensity
     }
