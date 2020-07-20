@@ -44,7 +44,7 @@ pub trait Material: Send + Sync {
 
     #[inline]
     fn pdf(&self) -> f32 {
-        0.5 * PI
+        0.5 / PI
     }
 
     fn emitted(&self, _u: f32, _v: f32, _point: &Vec3) -> Colour {
@@ -71,10 +71,10 @@ impl Material for Diffuse {
     ) -> Option<(Ray, Colour)> {
         let r1 = rng.gen::<f32>();
         let r2 = rng.gen::<f32>();
-        let n = rec.normal;
-        let (nt, nb) = create_coordinates_system(&n);
+        let w = rec.normal;
+        let (u, v) = create_coordinates_system(&w);
         let scattered_local = uniform_sample_hemisphere(r1, r2);
-        let scattered_dir = scattered_local.x * nt + scattered_local.y * nb + scattered_local.z * n;
+        let scattered_dir = scattered_local.x * u + scattered_local.y * v + scattered_local.z * w;
         let scattered = Ray::new(rec.point, scattered_dir, ray.t_min, ray.t_max);
         let colour = self.albedo;
 
